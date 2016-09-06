@@ -1,4 +1,3 @@
-
 	/* $Id: fpm_children.h,v 1.9 2008/05/24 17:38:47 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
@@ -15,6 +14,7 @@ int fpm_children_create_initial(struct fpm_worker_pool_s *wp);
 int fpm_children_free(struct fpm_child_s *child);
 void fpm_children_bury();
 int fpm_children_init_main();
+int fpm_children_init_new();
 int fpm_children_make(struct fpm_worker_pool_s *wp, int in_event_loop, int nb_to_spawn, int is_debug);
 
 struct fpm_child_s;
