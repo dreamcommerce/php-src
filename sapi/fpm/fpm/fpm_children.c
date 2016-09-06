@@ -299,15 +299,19 @@ void fpm_children_bury() /* {{{ */
 				}
 			}
 
-			if (restart_child) {
-				fpm_children_make(wp, 1 /* in event loop */, 1, 0);
-
-				if (fpm_globals.is_child) {
-					break;
-				}
-			}
+			/*
+			 * if (restart_child) {
+			 *	 fpm_children_make(wp, 1, 1, 0);
+			 *
+			 *	if (fpm_globals.is_child) {
+			 *		break;
+			 *	}
+			 * }
+			 */
 		} else {
-			zlog(ZLOG_ALERT, "oops, unknown child (%d) exited %s. Please open a bug report (https://bugs.php.net).", pid, buf);
+		    if(WEXITSTATUS(status) != 99){
+			    zlog(ZLOG_ALERT, "oops, unknown child (%d) exited %s. Please open a bug report (https://bugs.php.net).", pid, buf);
+			}
 		}
 	}
 }
