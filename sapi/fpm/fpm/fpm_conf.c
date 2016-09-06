@@ -202,6 +202,34 @@ static int fpm_conf_expand_pool_name(char **value) {
 		efree(buf);
 	}
 
+	char* slot = NULL;
+	slot = getenv("PHPSLOT");
+
+	while (*value && (token = strstr(*value, "$slot"))) {
+		char *buf;
+		char *p2 = token + strlen("$slot");
+
+		/* If we are not in a pool, we cannot expand this name now */
+		if (!current_wp || !current_wp->config  || !current_wp->config->name) {
+			return -1;
+		}
+
+		/* "aaa$slotbbb" becomes "aaa\0lotbbb" */
+		token[0] = '\0';
+
+		/* Build a brand new string with the expanded token */
+		if(slot != NULL) {
+			spprintf(&buf, 0, "%s%s%s", *value, slot, p2);
+		} else {
+			spprintf(&buf, 0, "%s%s", *value, p2);
+		}
+
+		/* Free the previous value and save the new one */
+		free(*value);
+		*value = strdup(buf);
+		efree(buf);
+	}
+
 	return 0;
 }
 
