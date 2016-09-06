@@ -174,6 +174,18 @@ int fpm_children_free(struct fpm_child_s *child) /* {{{ */
 }
 /* }}} */
 
+static int fpm_child_is_dir(char *path) /* {{{ */
+{
+    struct stat sb;
+
+    if (stat(path, &sb) != 0) {
+        return 0;
+    }
+
+    return (sb.st_mode & S_IFMT) == S_IFDIR;
+}
+/* }}} */
+
 void fpm_children_bury() /* {{{ */
 {
 	int status;
@@ -197,6 +209,10 @@ void fpm_children_bury() /* {{{ */
 			if (child && child->idle_kill) {
 				restart_child = 0;
 			}
+
+            if(child && 70 == WEXITSTATUS(status) && !fpm_child_is_dir(child->wp->config->chroot)) { // check for non existing chroot dir
+                restart_child = 0;
+            }
 
 			if (WEXITSTATUS(status) != FPM_EXIT_OK) {
 				severity = ZLOG_WARNING;

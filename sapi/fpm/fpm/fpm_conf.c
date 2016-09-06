@@ -981,8 +981,9 @@ static int fpm_conf_process_all_pools() /* {{{ */
 			}
 
 			if (!fpm_conf_is_dir(wp->config->chroot)) {
-				zlog(ZLOG_ERROR, "[pool %s] the chroot path '%s' does not exist or is not a directory", wp->config->name, wp->config->chroot);
-				return -1;
+                //zlog(ZLOG_WARNING, "[pool %s] the chroot path '%s' does not exist or is not a directory", wp->config->name, wp->config->chroot);
+				//zlog(ZLOG_ERROR, "[pool %s] the chroot path '%s' does not exist or is not a directory", wp->config->name, wp->config->chroot);
+				//return -1;
 			}
 		}
 
@@ -1002,9 +1003,10 @@ static int fpm_conf_process_all_pools() /* {{{ */
 				spprintf(&buf, 0, "%s/%s", wp->config->chroot, wp->config->chdir);
 
 				if (!fpm_conf_is_dir(buf)) {
-					zlog(ZLOG_ERROR, "[pool %s] the chdir path '%s' within the chroot path '%s' ('%s') does not exist or is not a directory", wp->config->name, wp->config->chdir, wp->config->chroot, buf);
-					efree(buf);
-					return -1;
+                    //zlog(ZLOG_WARNING, "[pool %s] the chdir path '%s' within the chroot path '%s' ('%s') does not exist or is not a directory", wp->config->name, wp->config->chdir, wp->config->chroot, buf);
+					//zlog(ZLOG_ERROR, "[pool %s] the chdir path '%s' within the chroot path '%s' ('%s') does not exist or is not a directory", wp->config->name, wp->config->chdir, wp->config->chroot, buf);
+					//efree(buf);
+					//return -1;
 				}
 
 				efree(buf);
