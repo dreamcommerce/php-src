@@ -55,7 +55,6 @@
 #define GO(field) offsetof(struct fpm_global_config_s, field)
 #define WPO(field) offsetof(struct fpm_worker_pool_config_s, field)
 
-static int fpm_conf_load_ini_file(char *filename);
 static char *fpm_conf_set_integer(zval *value, void **config, intptr_t offset);
 #if 0 /* not used for now */
 static char *fpm_conf_set_long(zval *value, void **config, intptr_t offset);
@@ -196,6 +195,34 @@ static int fpm_conf_expand_pool_name(char **value) {
 
 		/* Build a brand new string with the expanded token */
 		spprintf(&buf, 0, "%s%s%s", *value, current_wp->config->name, p2);
+
+		/* Free the previous value and save the new one */
+		free(*value);
+		*value = strdup(buf);
+		efree(buf);
+	}
+
+	char* slot = NULL;
+	slot = getenv("PHPSLOT");
+
+	while (*value && (token = strstr(*value, "$slot"))) {
+		char *buf;
+		char *p2 = token + strlen("$slot");
+
+		/* If we are not in a pool, we cannot expand this name now */
+		if (!current_wp || !current_wp->config  || !current_wp->config->name) {
+			return -1;
+		}
+
+		/* "aaa$slotbbb" becomes "aaa\0lotbbb" */
+		token[0] = '\0';
+
+		/* Build a brand new string with the expanded token */
+		if(slot != NULL) {
+			spprintf(&buf, 0, "%s%s%s", *value, slot, p2);
+		} else {
+			spprintf(&buf, 0, "%s%s", *value, p2);
+		}
 
 		/* Free the previous value and save the new one */
 		free(*value);
@@ -742,7 +769,7 @@ static int fpm_evaluate_full_path(char **path, struct fpm_worker_pool_s *wp, cha
 }
 /* }}} */
 
-static int fpm_conf_process_all_pools() /* {{{ */
+int fpm_conf_process_all_pools() /* {{{ */
 {
 	struct fpm_worker_pool_s *wp, *wp2;
 
@@ -753,6 +780,7 @@ static int fpm_conf_process_all_pools() /* {{{ */
 
 	for (wp = fpm_worker_all_pools; wp; wp = wp->next) {
 
+        if (!wp->loaded) {
 		/* prefix */
 		if (wp->config->prefix && *wp->config->prefix) {
 			fpm_evaluate_full_path(&wp->config->prefix, NULL, NULL, 0);
@@ -852,7 +880,7 @@ static int fpm_conf_process_all_pools() /* {{{ */
 			/* certainely useless but proper */
 			config->pm_start_servers = 0;
 			config->pm_min_spare_servers = 0;
-			config->pm_max_spare_servers = 0;
+			//config->pm_max_spare_servers = 0;
 		}
 
 		/* status */
@@ -981,8 +1009,9 @@ static int fpm_conf_process_all_pools() /* {{{ */
 			}
 
 			if (!fpm_conf_is_dir(wp->config->chroot)) {
-				zlog(ZLOG_ERROR, "[pool %s] the chroot path '%s' does not exist or is not a directory", wp->config->name, wp->config->chroot);
-				return -1;
+                //zlog(ZLOG_WARNING, "[pool %s] the chroot path '%s' does not exist or is not a directory", wp->config->name, wp->config->chroot);
+				//zlog(ZLOG_ERROR, "[pool %s] the chroot path '%s' does not exist or is not a directory", wp->config->name, wp->config->chroot);
+				//return -1;
 			}
 		}
 
@@ -1002,9 +1031,10 @@ static int fpm_conf_process_all_pools() /* {{{ */
 				spprintf(&buf, 0, "%s/%s", wp->config->chroot, wp->config->chdir);
 
 				if (!fpm_conf_is_dir(buf)) {
-					zlog(ZLOG_ERROR, "[pool %s] the chdir path '%s' within the chroot path '%s' ('%s') does not exist or is not a directory", wp->config->name, wp->config->chdir, wp->config->chroot, buf);
-					efree(buf);
-					return -1;
+                    //zlog(ZLOG_WARNING, "[pool %s] the chdir path '%s' within the chroot path '%s' ('%s') does not exist or is not a directory", wp->config->name, wp->config->chdir, wp->config->chroot, buf);
+					//zlog(ZLOG_ERROR, "[pool %s] the chdir path '%s' within the chroot path '%s' ('%s') does not exist or is not a directory", wp->config->name, wp->config->chdir, wp->config->chroot, buf);
+					//efree(buf);
+					//return -1;
 				}
 
 				efree(buf);
@@ -1090,6 +1120,8 @@ static int fpm_conf_process_all_pools() /* {{{ */
 					}
 				}
 			}
+		}
+		wp->loaded = 1;
 		}
 	}
 
@@ -1369,7 +1401,10 @@ static void fpm_conf_ini_parser_entry(zval *name, zval *value, void *arg) /* {{{
 	} else {
 		parser = ini_fpm_pool_options;
 		config = current_wp->config;
-	}
+	    if (current_wp->loaded) {
+            return;
+        }
+    }
 
 	for (; parser->name; parser++) {
 		if (!strcasecmp(parser->name, Z_STRVAL_P(name))) {
@@ -1409,6 +1444,9 @@ static void fpm_conf_ini_parser_array(zval *name, zval *key, zval *value, void *
 		*error = 1;
 		return;
 	}
+	if (current_wp && current_wp->loaded) {
+        return;
+    }
 	if (!current_wp || !current_wp->config) {
 		zlog(ZLOG_ERROR, "[%s:%d] Array are not allowed in the global section", ini_filename, ini_lineno);
 		*error = 1;

@@ -24,6 +24,7 @@ struct fpm_worker_pool_s {
 	char *user, *home;									/* for setting env USER and HOME */
 	enum fpm_address_domain listen_address_domain;
 	int listening_socket;
+	int loaded;
 	int set_uid, set_gid;								/* config uid and gid */
 	int socket_uid, socket_gid, socket_mode;
 

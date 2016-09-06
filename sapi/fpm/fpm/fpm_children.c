@@ -1,4 +1,3 @@
-
 	/* $Id: fpm_children.c,v 1.32.2.2 2008/12/13 03:21:18 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
@@ -174,6 +173,18 @@ int fpm_children_free(struct fpm_child_s *child) /* {{{ */
 }
 /* }}} */
 
+static int fpm_child_is_dir(char *path) /* {{{ */
+{
+    struct stat sb;
+
+    if (stat(path, &sb) != 0) {
+        return 0;
+    }
+
+    return (sb.st_mode & S_IFMT) == S_IFDIR;
+}
+/* }}} */
+
 void fpm_children_bury() /* {{{ */
 {
 	int status;
@@ -197,6 +208,10 @@ void fpm_children_bury() /* {{{ */
 			if (child && child->idle_kill) {
 				restart_child = 0;
 			}
+
+            if(child && 70 == WEXITSTATUS(status) && !fpm_child_is_dir(child->wp->config->chroot)) { // check for non existing chroot dir
+                restart_child = 0;
+            }
 
 			if (WEXITSTATUS(status) != FPM_EXIT_OK) {
 				severity = ZLOG_WARNING;
@@ -284,15 +299,19 @@ void fpm_children_bury() /* {{{ */
 				}
 			}
 
-			if (restart_child) {
-				fpm_children_make(wp, 1 /* in event loop */, 1, 0);
-
-				if (fpm_globals.is_child) {
-					break;
-				}
-			}
+			/*
+			 * if (restart_child) {
+			 *	 fpm_children_make(wp, 1, 1, 0);
+			 *
+			 *	if (fpm_globals.is_child) {
+			 *		break;
+			 *	}
+			 * }
+			 */
 		} else {
-			zlog(ZLOG_ALERT, "oops, unknown child (%d) exited %s. Please open a bug report (https://bugs.php.net).", pid, buf);
+		    if(WEXITSTATUS(status) != 99){
+			    zlog(ZLOG_ALERT, "oops, unknown child (%d) exited %s. Please open a bug report (https://bugs.php.net).", pid, buf);
+			}
 		}
 	}
 }
@@ -451,6 +470,34 @@ int fpm_children_create_initial(struct fpm_worker_pool_s *wp) /* {{{ */
 		return 1;
 	}
 	return fpm_children_make(wp, 0 /* not in event loop yet */, 0, 1);
+}
+/* }}} */
+
+int fpm_children_init_new() /* {{{ */
+{
+       struct fpm_worker_pool_s *wp;
+
+       for (wp = fpm_worker_all_pools; wp; wp = wp->next) {
+               if (wp->config->pm == PM_STYLE_ONDEMAND) {
+                       if(wp->ondemand_event){
+                               continue;
+                       }
+                       wp->ondemand_event = (struct fpm_event_s *)malloc(sizeof(struct fpm_event_s));
+
+                       if (!wp->ondemand_event) {
+                               zlog(ZLOG_ERROR, "[pool %s] unable to malloc the ondemand socket event", wp->config->name);
+                               // FIXME handle crash
+                               return -1;
+                       }
+
+                       memset(wp->ondemand_event, 0, sizeof(struct fpm_event_s));
+                       fpm_event_set(wp->ondemand_event, wp->listening_socket, FPM_EV_READ | FPM_EV_EDGE, fpm_pctl_on_socket_accept, wp);
+                       wp->socket_event_set = 1;
+                       fpm_event_add(wp->ondemand_event, 0);
+               }
+       }
+
+       return 0;
 }
 /* }}} */
 

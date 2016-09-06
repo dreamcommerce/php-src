@@ -1,4 +1,3 @@
-
 	/* $Id: fpm_env.c,v 1.15 2008/09/18 23:19:59 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
@@ -163,7 +162,7 @@ int fpm_env_init_child(struct fpm_worker_pool_s *wp) /* {{{ */
 }
 /* }}} */
 
-static int fpm_env_conf_wp(struct fpm_worker_pool_s *wp) /* {{{ */
+int fpm_env_conf_wp(struct fpm_worker_pool_s *wp) /* {{{ */
 {
 	struct key_value_s *kv;
 

@@ -14,6 +14,11 @@
 #include "fpm.h"
 #include "fpm_process_ctl.h"
 #include "fpm_events.h"
+#include "fpm_conf.h"
+#include "fpm_scoreboard.h"
+#include "fpm_sockets.h"
+#include "fpm_env.h"
+#include "fpm_unix.h"
 #include "fpm_cleanup.h"
 #include "fpm_stdio.h"
 #include "fpm_signals.h"
@@ -58,6 +63,8 @@ static void fpm_got_signal(struct fpm_event_s *ev, short which, void *arg) /* {{
 	char c;
 	int res, ret;
 	int fd = ev->fd;
+	struct fpm_worker_pool_s *wp;
+	struct passwd *pwd;
 
 	do {
 		do {
@@ -93,6 +100,56 @@ static void fpm_got_signal(struct fpm_event_s *ev, short which, void *arg) /* {{
 				break;
 			case '1' :                  /* SIGUSR1 */
 				zlog(ZLOG_DEBUG, "received SIGUSR1");
+				/* reload configs and add pools */
+                ret = fpm_conf_load_ini_file(fpm_globals.config TSRMLS_CC);
+                if (0 > ret) {
+                    zlog(ZLOG_ERROR, "failed to load configuration file '%s'", fpm_globals.config);
+                    break;
+                }
+
+                if (0 > fpm_conf_process_all_pools()) {
+                    break;
+                }
+
+                for (wp = fpm_worker_all_pools; wp; wp = wp->next) {
+                        if (!wp->config->access_log || !*wp->config->access_log) {
+                                continue;
+                        }
+                        if (0 > fpm_log_write(wp->config->access_format TSRMLS_CC)) {
+                                zlog(ZLOG_ERROR, "[pool %s] wrong format for access.format '%s'", wp->config->name, wp->config->access_format);
+                                break;
+                        }
+                }
+
+                for (wp = fpm_worker_all_pools; wp; wp = wp->next) {
+                        if(!wp->user){
+                                zlog(ZLOG_NOTICE, "Initializing new pool: '%s'", wp->config->name);
+                                if (0 > fpm_unix_conf_wp(wp)) {
+                                        break;
+                                }
+                                if (0 > fpm_env_conf_wp(wp)) {
+                                        break;
+                                }
+                        }else{
+                            pwd = getpwnam(wp->config->user);
+                            if (pwd) {
+                                wp->set_uid = pwd->pw_uid;
+                                wp->set_gid = pwd->pw_gid;
+
+                                wp->user = strdup(pwd->pw_name);
+                                wp->home = strdup(pwd->pw_dir);
+                            }
+                        }
+                }
+
+                if (0 > fpm_scoreboard_init_main()) {
+                        break;
+                }
+
+                /* create all required sockets */
+                if (0 > fpm_sockets_init_new()) {
+                        break;
+                }
 				if (0 == fpm_stdio_open_error_log(1)) {
 					zlog(ZLOG_NOTICE, "error log file re-opened");
 				} else {
@@ -107,6 +164,9 @@ static void fpm_got_signal(struct fpm_event_s *ev, short which, void *arg) /* {{
 				}
 				/* else no access log are set */
 
+                if (0 > fpm_children_init_new()) {
+                        break;
+                }
 				break;
 			case '2' :                  /* SIGUSR2 */
 				zlog(ZLOG_DEBUG, "received SIGUSR2");

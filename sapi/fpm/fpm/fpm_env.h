@@ -1,4 +1,3 @@
-
 	/* $Id: fpm_env.h,v 1.9 2008/09/18 23:19:59 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
@@ -11,6 +10,7 @@
 
 int fpm_env_init_child(struct fpm_worker_pool_s *wp);
 int fpm_env_init_main();
+int fpm_env_conf_wp(struct fpm_worker_pool_s *wp);
 void fpm_env_setproctitle(char *title);
 
 extern char **environ;

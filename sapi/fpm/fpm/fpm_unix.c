@@ -1,4 +1,3 @@
-
 	/* $Id: fpm_unix.c,v 1.25.2.1 2008/12/13 03:18:23 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
@@ -254,7 +253,7 @@ int fpm_unix_free_socket_premissions(struct fpm_worker_pool_s *wp) /* {{{ */
 }
 /* }}} */
 
-static int fpm_unix_conf_wp(struct fpm_worker_pool_s *wp) /* {{{ */
+int fpm_unix_conf_wp(struct fpm_worker_pool_s *wp) /* {{{ */
 {
 	struct passwd *pwd;
 	int is_root = !geteuid();

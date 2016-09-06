@@ -48,8 +48,8 @@ int fpm_scoreboard_init_main() /* {{{ */
 		}
 
 		if (wp->scoreboard) {
-			zlog(ZLOG_ERROR, "[pool %s] Unable to create scoreboard SHM because it already exists", wp->config->name);
-			return -1;
+			zlog(ZLOG_NOTICE, "[pool %s] Unable to create scoreboard SHM because it already exists", wp->config->name);
+            continue;
 		}
 
 		wp->scoreboard = fpm_shm_alloc(sizeof(struct fpm_scoreboard_s) + (wp->config->pm_max_children - 1) * sizeof(struct fpm_scoreboard_proc_s *));
