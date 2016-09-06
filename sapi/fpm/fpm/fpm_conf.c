@@ -852,7 +852,7 @@ int fpm_conf_process_all_pools() /* {{{ */
 			/* certainely useless but proper */
 			config->pm_start_servers = 0;
 			config->pm_min_spare_servers = 0;
-			config->pm_max_spare_servers = 0;
+			//config->pm_max_spare_servers = 0;
 		}
 
 		/* status */
