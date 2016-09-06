@@ -1,4 +1,3 @@
-
 	/* $Id: fpm_conf.h,v 1.12.2.2 2008/12/13 03:46:49 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
@@ -116,5 +115,7 @@ int fpm_worker_pool_config_free(struct fpm_worker_pool_config_s *wpc);
 int fpm_conf_write_pid();
 int fpm_conf_unlink_pid();
 
+int fpm_conf_load_ini_file(char *filename);
+int fpm_conf_process_all_pools();
 #endif
 
