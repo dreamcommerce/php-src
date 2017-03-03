@@ -1,4 +1,3 @@
-
 	/* $Id: fpm_sockets.c,v 1.20.2.1 2008/12/13 03:21:18 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
@@ -317,6 +316,45 @@ static int fpm_socket_af_unix_listening_socket(struct fpm_worker_pool_s *wp) /* 
 	strlcpy(sa_un.sun_path, wp->config->listen_address, sizeof(sa_un.sun_path));
 	sa_un.sun_family = AF_UNIX;
 	return fpm_sockets_get_listening_socket(wp, (struct sockaddr *) &sa_un, sizeof(struct sockaddr_un));
+}
+/* }}} */
+
+int fpm_sockets_init_new() /* {{{ */
+{
+       unsigned i, lq_len;
+       struct fpm_worker_pool_s *wp;
+       struct listening_socket_s *ls;
+
+       /* create all required sockets */
+       for (wp = fpm_worker_all_pools; wp; wp = wp->next) {
+               if(wp->listening_socket){
+                       zlog(ZLOG_NOTICE, "socket: %s is already listening", wp->config->name);
+                       continue;
+               }
+               switch (wp->listen_address_domain) {
+                       case FPM_AF_INET :
+                               wp->listening_socket = fpm_socket_af_inet_listening_socket(wp);
+                               break;
+
+                       case FPM_AF_UNIX :
+                               if (0 > fpm_unix_resolve_socket_premissions(wp)) {
+                                       zlog(ZLOG_SYSERROR, "error in fpm_unix_resolve_socket_premissions() for %s", wp->config->name);
+                                       return -1;
+                               }
+                               wp->listening_socket = fpm_socket_af_unix_listening_socket(wp);
+                               break;
+               }
+
+               if (wp->listening_socket == -1) {
+                       return -1;
+               }
+
+       if (wp->listen_address_domain == FPM_AF_INET && fpm_socket_get_listening_queue(wp->listening_socket, NULL, &lq_len) >= 0) {
+                       fpm_scoreboard_update(-1, -1, -1, (int)lq_len, -1, -1, 0, FPM_SCOREBOARD_ACTION_SET, wp->scoreboard);
+               }
+       }
+
+       return 0;
 }
 /* }}} */
 

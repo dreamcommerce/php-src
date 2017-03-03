@@ -25,6 +25,7 @@ static float fpm_scoreboard_tick;
 int fpm_scoreboard_init_main() /* {{{ */
 {
 	struct fpm_worker_pool_s *wp;
+	struct fpm_scoreboard_s *ws, *ws2;
 	unsigned int i;
 
 #ifdef HAVE_TIMES
@@ -42,8 +43,8 @@ int fpm_scoreboard_init_main() /* {{{ */
 
 
 	for (wp = fpm_worker_all_pools; wp; wp = wp->next) {
-		size_t scoreboard_size, scoreboard_nprocs_size;
-		void *shm_mem;
+		size_t scoreboard_size, scoreboard_nprocs_size, scoreboard_size_new, scoreboard_nprocs_size_new;
+		void *shm_mem, *shm_mem_new, *shm_mem_cpy;
 
 		if (wp->config->pm_max_children < 1) {
 			zlog(ZLOG_ERROR, "[pool %s] Unable to create scoreboard SHM because max_client is not set", wp->config->name);
@@ -51,8 +52,45 @@ int fpm_scoreboard_init_main() /* {{{ */
 		}
 
 		if (wp->scoreboard) {
-			zlog(ZLOG_ERROR, "[pool %s] Unable to create scoreboard SHM because it already exists", wp->config->name);
-			return -1;
+		    if(wp->scoreboard->nprocs < wp->config->pm_max_children){
+
+		        scoreboard_size        = sizeof(struct fpm_scoreboard_s) + (wp->scoreboard->nprocs) * sizeof(struct fpm_scoreboard_proc_s *);
+                scoreboard_nprocs_size = sizeof(struct fpm_scoreboard_proc_s) * wp->scoreboard->nprocs;
+
+		        scoreboard_size_new        = sizeof(struct fpm_scoreboard_s) + (wp->config->pm_max_children) * sizeof(struct fpm_scoreboard_proc_s *);
+                scoreboard_nprocs_size_new = sizeof(struct fpm_scoreboard_proc_s) * wp->config->pm_max_children;
+                shm_mem_new                = fpm_shm_alloc(scoreboard_size_new + scoreboard_nprocs_size_new);
+		        if (!shm_mem_new) {
+            		zlog(ZLOG_NOTICE, "[pool %s] Unable to expand scoreboard SHM to %d children", wp->config->name, wp->config->pm_max_children);
+                    continue;
+            	}
+
+            	ws = shm_mem_new;
+            	ws->pm = wp->config->pm;
+            	ws->nprocs = wp->config->pm_max_children;
+            	ws->start_epoch = wp->scoreboard->start_epoch;
+
+            	shm_mem_new += scoreboard_size_new;
+                shm_mem_cpy = wp->scoreboard + scoreboard_size;
+                memcpy(shm_mem_new, shm_mem_cpy, scoreboard_nprocs_size);
+
+            	for (i = 0; i < ws->nprocs; i++, shm_mem_new += sizeof(struct fpm_scoreboard_proc_s)) {
+                    ws->procs[i] = shm_mem_new;
+                }
+
+                strlcpy(ws->pool, wp->config->name, sizeof(ws->pool));
+
+                ws2 = wp->scoreboard;
+                wp->scoreboard = ws;
+
+                fpm_shm_free(ws2, scoreboard_size + scoreboard_nprocs_size);
+
+                zlog(ZLOG_NOTICE, "[pool %s] Scoreboard SHM extended to %d children", wp->config->name, wp->config->pm_max_children);
+                continue;
+		    }else{
+                zlog(ZLOG_NOTICE, "[pool %s] Unable to create scoreboard SHM because it already exists", wp->config->name);
+                continue;
+            }
 		}
 
 		scoreboard_size        = sizeof(struct fpm_scoreboard_s) + (wp->config->pm_max_children) * sizeof(struct fpm_scoreboard_proc_s *);

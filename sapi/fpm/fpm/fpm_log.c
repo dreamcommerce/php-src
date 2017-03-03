@@ -51,10 +51,12 @@ int fpm_log_open(int reopen) /* {{{ */
 		}
 
 		if (reopen) {
-			dup2(fd, wp->log_fd);
-			close(fd);
-			fd = wp->log_fd;
-			fpm_pctl_kill_all(SIGQUIT);
+		    if(wp->log_fd){
+		        dup2(fd, wp->log_fd);
+                close(fd);
+                fd = wp->log_fd;
+                fpm_pctl_kill_all(SIGQUIT);
+            }
 		} else {
 			wp->log_fd = fd;
 		}
